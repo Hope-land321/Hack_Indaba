@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sprout, Mic, LayoutDashboard, CheckCircle2, Sparkles, Languages } from 'lucide-react';
+import { Sprout, Mic, LayoutDashboard, ShieldCheck, Sparkles } from 'lucide-react';
 
 export default function Navbar({ activeTab, setActiveTab, recordCount }) {
   return (
@@ -7,7 +7,7 @@ export default function Navbar({ activeTab, setActiveTab, recordCount }) {
       position: 'sticky',
       top: 0,
       zIndex: 50,
-      background: 'rgba(9, 19, 14, 0.85)',
+      background: 'rgba(9, 19, 14, 0.9)',
       backdropFilter: 'blur(16px)',
       borderBottom: '1px solid rgba(52, 211, 153, 0.2)'
     }}>
@@ -15,13 +15,13 @@ export default function Navbar({ activeTab, setActiveTab, recordCount }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        height: '74px'
+        height: '70px'
       }}>
         {/* Logo & Branding */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setActiveTab('agriculteur')}>
           <div style={{
-            width: '44px',
-            height: '44px',
+            width: '42px',
+            height: '42px',
             borderRadius: '12px',
             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
             display: 'flex',
@@ -29,24 +29,19 @@ export default function Navbar({ activeTab, setActiveTab, recordCount }) {
             justifyContent: 'center',
             boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)'
           }}>
-            <Sprout size={26} color="#ffffff" />
+            <Sprout size={24} color="#ffffff" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="brand-font" style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
-                Agri<span className="gradient-text">Voix</span> Bénin
-              </span>
-              <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
-                <Sparkles size={10} /> Bivariant AI
-              </span>
-            </div>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Conseil Agricole Vocal & Structuration de Données (INRAB / FAO)
-            </p>
+            <span className="brand-font" style={{ fontSize: '1.35rem', fontWeight: 800 }}>
+              Agri<span className="gradient-text">Voix</span> Bénin 🇧🇯
+            </span>
+            <span className="badge badge-success" style={{ fontSize: '0.65rem', marginLeft: '8px' }}>
+              <ShieldCheck size={10} /> RAG INRAB
+            </span>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Navigation Tabs : Agriculteur (Vocal) vs Admin / Agent */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             id="tab-agriculteur"
@@ -55,63 +50,41 @@ export default function Navbar({ activeTab, setActiveTab, recordCount }) {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '10px 18px',
+              padding: '8px 16px',
               borderRadius: '12px',
-              border: activeTab === 'agriculteur' ? '1px solid var(--primary-light)' : '1px solid transparent',
-              background: activeTab === 'agriculteur' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+              border: activeTab === 'agriculteur' ? '1.5px solid #10b981' : '1px solid transparent',
+              background: activeTab === 'agriculteur' ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
               color: activeTab === 'agriculteur' ? '#34d399' : 'var(--text-muted)',
-              fontWeight: 600,
-              fontSize: '0.9rem',
+              fontWeight: 700,
+              fontSize: '0.88rem',
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}
           >
             <Mic size={18} />
-            <span>Espace Agriculteur</span>
+            <span>Agriculteur (Vocal WhatsApp)</span>
           </button>
 
           <button
-            id="tab-dashboard"
+            id="tab-admin"
             onClick={() => setActiveTab('dashboard')}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '10px 18px',
+              padding: '8px 16px',
               borderRadius: '12px',
-              border: activeTab === 'dashboard' ? '1px solid var(--primary-light)' : '1px solid transparent',
-              background: activeTab === 'dashboard' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-              color: activeTab === 'dashboard' ? '#34d399' : 'var(--text-muted)',
-              fontWeight: 600,
-              fontSize: '0.9rem',
+              border: activeTab === 'dashboard' || activeTab === 'validation' ? '1.5px solid #f59e0b' : '1px solid transparent',
+              background: activeTab === 'dashboard' || activeTab === 'validation' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+              color: activeTab === 'dashboard' || activeTab === 'validation' ? '#f59e0b' : 'var(--text-muted)',
+              fontWeight: 700,
+              fontSize: '0.88rem',
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}
           >
             <LayoutDashboard size={18} />
-            <span>Base de Données ({recordCount})</span>
-          </button>
-
-          <button
-            id="tab-validation"
-            onClick={() => setActiveTab('validation')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 18px',
-              borderRadius: '12px',
-              border: activeTab === 'validation' ? '1px solid var(--primary-light)' : '1px solid transparent',
-              background: activeTab === 'validation' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-              color: activeTab === 'validation' ? '#34d399' : 'var(--text-muted)',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <CheckCircle2 size={18} />
-            <span>Validation NLP & Lexique</span>
+            <span>Espace Agent / Admin ({recordCount})</span>
           </button>
         </nav>
       </div>
