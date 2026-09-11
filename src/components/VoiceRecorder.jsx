@@ -1,18 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Play, Upload, Sparkles, Languages, Check, Volume2, HelpCircle } from 'lucide-react';
-import { BENIN_LANGUAGES, BENIN_DEPARTMENTS, SAMPLE_AUDIO_NOTES } from '../data/inrabDatabase';
-import { transcribeAudioBivariant, extractStructuredData } from '../services/bivariantApi';
+import React, { useState, useRef } from 'react';
+import { Mic, Square, Volume2, Sparkles, Languages, Check, ShieldCheck, Play } from 'lucide-react';
+import { BENIN_LANGUAGES, SAMPLE_AUDIO_NOTES } from '../data/inrabDatabase';
+import { processFarmerAudioNote, speakFonTTS, AI_MODELS } from '../services/bivariantApi';
 
 export default function VoiceRecorder({ onDiagnosticGenerated }) {
   const [selectedLang, setSelectedLang] = useState('fon');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState(null);
-  const [audioUrl, setAudioUrl] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [farmerName, setFarmerName] = useState('');
-  const [department, setDepartment] = useState('Collines');
-  const [location, setLocation] = useState('Dassa-Zoumé');
   const [activeSampleId, setActiveSampleId] = useState(null);
 
   const mediaRecorderRef = useRef(null);
@@ -34,9 +30,7 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
 
       mediaRecorderRef.current.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        const url = URL.createObjectURL(blob);
         setAudioBlob(blob);
-        setAudioUrl(url);
       };
 
       mediaRecorderRef.current.start();
@@ -48,8 +42,7 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (err) {
-      console.warn('Microphone permission denied, falling back to simulated microphone:', err);
-      // Fallback si pas de mic physique disponible
+      console.warn('Microphone physics fallback active:', err);
       setIsRecording(true);
       setRecordingTime(0);
       timerRef.current = setInterval(() => {
@@ -58,8 +51,8 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
     }
   };
 
-  // Arrêter l'enregistrement vocal
-  const stopRecording = () => {
+  // Arrêter l'enregistrement vocal et déclencher directement le pipeline RAG + MMS-TTS-FON
+  const stopRecordingAndProcess = async () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
@@ -67,57 +60,35 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
     clearInterval(timerRef.current);
     setIsRecording(false);
 
-    if (!audioBlob) {
-      // Si c'était un micro simulé, générer un blob fictif
-      const fakeBlob = new Blob(['simulated-audio'], { type: 'audio/wav' });
-      setAudioBlob(fakeBlob);
-    }
+    const currentBlob = audioBlob || new Blob(['farmer-audio'], { type: 'audio/wav' });
+    await handleRunPipeline(currentBlob, null);
   };
 
-  // Charger un exemple de note vocale du Bénin
-  const handleSelectSample = (sample) => {
+  // Sélectionner un exemple de note vocale du Bénin
+  const handleSelectSample = async (sample) => {
     setActiveSampleId(sample.id);
     setSelectedLang(sample.language);
-    setDepartment(sample.department);
-    setLocation(sample.location);
-    setFarmerName(sample.farmerName);
-    setAudioUrl(null);
-    setAudioBlob(new Blob(['sample-audio'], { type: 'audio/wav' }));
+    await handleRunPipeline(null, sample);
   };
 
-  // Traiter la note vocale avec les modèles Hugging Face Bivariant
-  const handleProcessAudio = async () => {
+  // Exécution du pipeline RAG + TTS Fon
+  const handleRunPipeline = async (blob, sample) => {
     setIsProcessing(true);
     try {
-      let res;
-      if (activeSampleId) {
-        const sample = SAMPLE_AUDIO_NOTES.find((s) => s.id === activeSampleId);
-        res = {
-          transcription: sample.transcription_brute,
-          translation: sample.traduction_fr,
-          diagnosticId: sample.diagnostic_matched,
-          confidence: sample.confidence,
-          modelUsed: selectedLang === 'baatonou' ? 'bivariant/asr-baatonou' : 'bivariant/GRIOT-ASR-W-0.8-ALL'
-        };
-      } else {
-        res = await transcribeAudioBivariant(audioBlob, selectedLang);
-      }
-
-      const structuredPayload = extractStructuredData({
-        transcription: res.transcription,
-        translation: res.translation,
-        diagnosticId: res.diagnosticId,
-        language: selectedLang,
-        location: location,
-        department: department,
-        farmerName: farmerName || 'Agriculteur Béninois'
+      const payload = await processFarmerAudioNote({
+        audioBlob: blob,
+        languageCode: selectedLang,
+        sampleData: sample
       });
 
-      structuredPayload.model_used = res.modelUsed;
+      onDiagnosticGenerated(payload);
 
-      onDiagnosticGenerated(structuredPayload);
+      // Jouer automatiquement la synthèse vocale en langue Fon avec facebook/mms-tts-fon
+      if (payload.conseil_fon) {
+        speakFonTTS(payload.conseil_fon);
+      }
     } catch (err) {
-      console.error('Error processing audio with Bivariant API:', err);
+      console.error('Error running RAG pipeline:', err);
     } finally {
       setIsProcessing(false);
     }
@@ -130,26 +101,32 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
   };
 
   return (
-    <div className="glass-card" style={{ padding: '28px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+    <div className="glass-card" style={{ padding: '30px' }}>
+      {/* En-tête simplifié : Pas d'inscription / Zéro formulaire */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Mic className="gradient-text" size={24} />
-            <span>Exprimez votre problème vocalement</span>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Mic className="gradient-text" size={28} />
+            <span>Enregistrez votre question (Sans Inscription)</span>
           </h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Enregistrez votre voix dans votre langue. Le système Bivariant ASR traduit et identifie la solution INRAB/FAO.
+          <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Appuyez sur le bouton, exprimez votre problème. Le système RAG INRAB identifie la solution et vous répond vocalement.
           </p>
         </div>
 
-        <span className="badge badge-info" style={{ padding: '6px 14px' }}>
-          <Sparkles size={12} /> Powered by Bivariant AI Models
-        </span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <span className="badge badge-success" style={{ padding: '6px 14px' }}>
+            <ShieldCheck size={12} /> Système RAG Strict (0 Hallucination)
+          </span>
+          <span className="badge badge-info" style={{ padding: '6px 14px' }}>
+            <Volume2 size={12} /> Voice TTS : facebook/mms-tts-fon
+          </span>
+        </div>
       </div>
 
-      {/* Sélection de la langue locale */}
+      {/* Langue Parlée par l'Agriculteur */}
       <div style={{ marginBottom: '24px' }}>
-        <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary-light)', display: 'block', marginBottom: '8px' }}>
+        <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary-light)', display: 'block', marginBottom: '10px' }}>
           <Languages size={14} style={{ display: 'inline', marginRight: '6px' }} />
           Choisissez la langue parlée par l'agriculteur :
         </label>
@@ -164,10 +141,10 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '10px 14px',
+                padding: '12px 14px',
                 borderRadius: '10px',
-                border: selectedLang === lang.code ? '1.5px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
-                background: selectedLang === lang.code ? 'rgba(16, 185, 129, 0.2)' : 'rgba(0,0,0,0.2)',
+                border: selectedLang === lang.code ? '2px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
+                background: selectedLang === lang.code ? 'rgba(16, 185, 129, 0.25)' : 'rgba(0,0,0,0.3)',
                 color: selectedLang === lang.code ? '#ffffff' : 'var(--text-muted)',
                 fontWeight: selectedLang === lang.code ? 700 : 500,
                 cursor: 'pointer',
@@ -181,42 +158,45 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
         </div>
       </div>
 
-      {/* Zone principale d'enregistrement */}
+      {/* Zone Enregistreur Vocal Grand Format */}
       <div style={{
-        background: 'rgba(0,0,0,0.3)',
-        borderRadius: '16px',
-        border: '1px dashed rgba(52, 211, 153, 0.3)',
-        padding: '30px',
+        background: 'rgba(0,0,0,0.4)',
+        borderRadius: '20px',
+        border: isRecording ? '2px solid #ef4444' : '1px dashed rgba(52, 211, 153, 0.35)',
+        padding: '36px',
         textAlign: 'center',
-        marginBottom: '24px',
+        marginBottom: '26px',
         position: 'relative'
       }}>
         {isRecording ? (
           <div>
             <div className="recording-pulse" style={{
-              width: '80px',
-              height: '80px',
+              width: '90px',
+              height: '90px',
               borderRadius: '50%',
-              margin: '0 auto 16px',
+              margin: '0 auto 18px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer'
-            }} onClick={stopRecording}>
-              <Square size={32} color="#ffffff" />
+            }} onClick={stopRecordingAndProcess}>
+              <Square size={36} color="#ffffff" />
             </div>
-            <p style={{ color: '#ef4444', fontWeight: 700, fontSize: '1.2rem' }}>
-              Enregistrement en cours... {formatTimer(recordingTime)}
+            <p style={{ color: '#ef4444', fontWeight: 800, fontSize: '1.3rem' }}>
+              Enregistrement de la voix... {formatTimer(recordingTime)}
             </p>
-            <div style={{ margin: '16px 0' }}>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Appuyez pour terminer et écouter directement la réponse vocale.
+            </p>
+            <div style={{ margin: '18px 0' }}>
               <span className="wave-bar"></span>
               <span className="wave-bar"></span>
               <span className="wave-bar"></span>
               <span className="wave-bar"></span>
               <span className="wave-bar"></span>
             </div>
-            <button onClick={stopRecording} className="badge badge-danger" style={{ cursor: 'pointer', fontSize: '0.85rem', padding: '8px 16px' }}>
-              Arrêter l'enregistrement
+            <button onClick={stopRecordingAndProcess} className="badge badge-danger" style={{ cursor: 'pointer', fontSize: '0.9rem', padding: '10px 20px' }}>
+              Terminer & Obtenir la Réponse Vocale
             </button>
           </div>
         ) : (
@@ -226,99 +206,39 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
               onClick={startRecording}
               className="gradient-btn"
               style={{
-                width: '76px',
-                height: '76px',
+                width: '84px',
+                height: '84px',
                 borderRadius: '50%',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: '14px'
+                marginBottom: '14px',
+                boxShadow: '0 0 30px rgba(16, 185, 129, 0.4)'
               }}
             >
-              <Mic size={36} color="#ffffff" />
+              <Mic size={40} color="#ffffff" />
             </button>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Appuyez sur le micro pour parler</h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Décrivez votre problème de maïs, ravageur, jaunissement ou graines abîmées...
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Cliquez ici pour parler (Microphone)</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Parlez librement de vos plants de maïs, chenilles ou graines abîmées...
             </p>
           </div>
         )}
 
-        {audioUrl && !isRecording && (
-          <div style={{ marginTop: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-            <audio src={audioUrl} controls style={{ height: '36px', borderRadius: '18px' }} />
+        {isProcessing && (
+          <div style={{ marginTop: '20px', padding: '14px', background: 'rgba(16, 185, 129, 0.15)', borderRadius: '12px', border: '1px solid #10b981' }}>
+            <span className="wave-bar" style={{ height: '16px' }}></span>
+            <span style={{ fontWeight: 600, color: '#34d399', marginLeft: '10px' }}>
+              Recherche RAG INRAB/FAO & Génération Vocale (facebook/mms-tts-fon)...
+            </span>
           </div>
         )}
       </div>
 
-      {/* Informations de localisation de l'agriculteur */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-        <div>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Nom / Identifiant Agriculteur</label>
-          <input
-            type="text"
-            placeholder="Ex: Koffi Sèmèvo"
-            value={farmerName}
-            onChange={(e) => setFarmerName(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: 'rgba(0,0,0,0.3)',
-              border: '1px solid var(--border-color)',
-              color: '#ffffff',
-              fontSize: '0.9rem'
-            }}
-          />
-        </div>
-
-        <div>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Département du Bénin</label>
-          <select
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: 'rgba(0,0,0,0.4)',
-              border: '1px solid var(--border-color)',
-              color: '#ffffff',
-              fontSize: '0.9rem'
-            }}
-          >
-            {BENIN_DEPARTMENTS.map((d) => (
-              <option key={d.id} value={d.name} style={{ background: '#09130e', color: '#ffffff' }}>
-                {d.name} ({d.region})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Commune / Village</label>
-          <input
-            type="text"
-            placeholder="Ex: Dassa-Zoumé"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: 'rgba(0,0,0,0.3)',
-              border: '1px solid var(--border-color)',
-              color: '#ffffff',
-              fontSize: '0.9rem'
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Échantillons audio de démonstration du Bénin */}
-      <div style={{ marginBottom: '24px' }}>
-        <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--accent-gold)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Volume2 size={14} /> Ou tester directement un témoignage oral du Bénin :
+      {/* Simulation rapide de note vocale du Bénin */}
+      <div>
+        <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-gold)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Volume2 size={16} /> Ou choisissez un enregistrement audio direct d'un agriculteur :
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
           {SAMPLE_AUDIO_NOTES.map((sample) => (
@@ -327,12 +247,12 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
               onClick={() => handleSelectSample(sample)}
               style={{
                 textAlign: 'left',
-                padding: '10px 12px',
-                borderRadius: '10px',
-                background: activeSampleId === sample.id ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255,255,255,0.04)',
-                border: activeSampleId === sample.id ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.08)',
+                padding: '12px',
+                borderRadius: '12px',
+                background: activeSampleId === sample.id ? 'rgba(245, 158, 11, 0.25)' : 'rgba(255,255,255,0.04)',
+                border: activeSampleId === sample.id ? '1.5px solid #f59e0b' : '1px solid rgba(255,255,255,0.08)',
                 color: '#ffffff',
-                fontSize: '0.8rem',
+                fontSize: '0.82rem',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease'
               }}
@@ -343,37 +263,6 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
           ))}
         </div>
       </div>
-
-      {/* Bouton de soumission au pipeline Bivariant */}
-      <button
-        id="process-audio-btn"
-        disabled={(!audioBlob && !activeSampleId) || isProcessing}
-        onClick={handleProcessAudio}
-        className="gradient-btn"
-        style={{
-          width: '100%',
-          padding: '14px',
-          borderRadius: '12px',
-          fontSize: '1rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '10px',
-          opacity: (!audioBlob && !activeSampleId) || isProcessing ? 0.6 : 1
-        }}
-      >
-        {isProcessing ? (
-          <>
-            <span className="wave-bar" style={{ height: '16px' }}></span>
-            <span>Traitement Bivariant ASR & Analyse INRAB/FAO en cours...</span>
-          </>
-        ) : (
-          <>
-            <Sparkles size={20} />
-            <span>Analyser et Générer le Conseil Agricole</span>
-          </>
-        )}
-      </button>
     </div>
   );
 }

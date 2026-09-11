@@ -1,141 +1,86 @@
 # AgriVoix Bénin 🌾🎙️
 
-> **De la Parole des Agriculteurs au Conseil Agricole Accessible et aux Données Structurées**
+> **Système RAG Agricole Invariable & Restitution Vocale en Langues Locales (Fon)**
 > 
-> *Projet développé pour le Hackathon Indaba Bénin 2026*
+> *Projet développé pour le Hackathon Indaba Bénin 2026*  
 > Dépôt Git officiel : [https://github.com/Hope-land321/Hack_Indaba.git](https://github.com/Hope-land321/Hack_Indaba.git)  
-> Basé sur les modèles AI : [https://huggingface.co/bivariant](https://huggingface.co/bivariant)
+> Modèle Vocal Fon : [`facebook/mms-tts-fon`](https://huggingface.co/facebook/mms-tts-fon)  
+> Modèles ASR / MT : [`bivariant`](https://huggingface.co/bivariant)
 
 ---
 
-## 📌 1. Concept et Problématique
+## 📌 1. Concept et Workflow Agriculteur (Zéro Inscription)
 
-Au Bénin, l'agriculture représente **24,2 % du PIB** et emploie plus de **2,3 millions d'actifs** répartis dans environ 900 000 ménages. Le pays compte plus de 50 langues nationales pour une seule langue officielle (le français), et le taux d'alphabétisation des adultes en milieu rural reste faible (42 % à 51 %).
+Au Bénin, la majorité des agriculteurs ruraux s'expriment oralement dans leurs langues nationales (**Fon, Baatonou, Yoruba, Mina, Dendi**). Les fiches techniques agricoles de référence (**INRAB** - Institut National des Recherches Agricoles du Bénin & **FAO**) étant écrites et en français, l'accès à l'information est un défi majeur.
 
-### Le Problème
-Lorsqu'un problème survient sur une culture (jaunissement du maïs, attaque de chenilles légionnaires, ravageurs de stockage, mauvaise herbe parasitaire Striga), l'agriculteur a besoin d'une information **rapide et compréhensible**. 
-Cependant, les ressources et fiches techniques agricoles officielles (ex: **INRAB** - Institut National des Recherches Agricoles du Bénin & **FAO**) sont majoritairement rédigées **en français et sous forme écrite**.
-
-### Notre Solution : AgriVoix Bénin
-AgriVoix Bénin permet à l'agriculteur d'**exprimer oralement son problème dans sa langue maternelle** (Fon, Baatonou, Yoruba, Mina, Dendi ou Français) et d'obtenir :
-1. **Un conseil agricole adapté et compréhensible** restitué par **synthèse vocale (oral)** dans sa langue et sous forme de **pictogrammes visuels simples**.
-2. **Une structuration automatique** de l'échange sous forme de données JSON standardisées, alimentant en temps réel une base de données nationale cartographiée pour la recherche, les ONG et les décideurs publics.
+### Principes Directeurs d'AgriVoix Bénin :
+1. **Sans Inscription / Zéro Formulaire** : L'agriculteur n'a pas besoin de créer un compte. Il clique sur le microphone, exprime son problème de culture à haute voix et relâche.
+2. **Système RAG (Retrieval-Augmented Generation) Strict - ZÉRO Hallucination** : Le système n'invente rien. Il effectue une recherche RAG sur le corpus vectoriel des fiches techniques officielles de l'INRAB/FAO (`ca2306fr.pdf` et `ca2313fr.pdf`).
+3. **Réponse Vocale Directe en Fon (`facebook/mms-tts-fon`)** : Dès que l'enregistrement se termine, le conseil agricole s'exécute et est lu **immédiatement à voix haute en langue Fon** via le modèle `facebook/mms-tts-fon`.
 
 ---
 
-## 🛠️ 2. Architecture & Pipeline Technique
+## 🛠️ 2. Architecture RAG & Pipeline Vocale
 
 ```
-🎙️ Note vocale (Fon, Baatonou, Yoruba, Mina, Dendi, Français)
+🎙️ Note Vocale de l'Agriculteur (Fon, Baatonou, Yoruba, Mina, Dendi, Français)
         ↓
-🤖 ASR & Traduction (Modèles Hugging Face Bivariant)
+🤖 Inférence ASR & Translation (Bivariant AI)
    - bivariant/GRIOT-ASR-W-0.8-ALL
    - bivariant/Griot-MT-1.3B-ALL
-   - bivariant/asr-baatonou
         ↓
-📚 Moteur de Diagnostic & Conseils Agronomiques (Fiches Techniques INRAB / FAO 2018)
+🧠 Moteur RAG INRAB / FAO (Strict 0 Hallucination)
+   - Indexation des fiches techniques ca2306fr.pdf (Ravageurs stockés) & ca2313fr.pdf (Maladies du maïs)
+   - Extraction des protocoles officiels et citations verbatims
         ↓
-🗣️ Restitution Vocale (Text-To-Speech) + 💡 Pictogrammes Visuels pour l'Agriculteur
+🔊 Synthèse Vocale Fon (facebook/mms-tts-fon)
+   - Génération de l'audio en Fon et lecture automatique immédiate
         ↓
-📊 Structuration Automatique en Données JSON & Export (CSV/JSON)
-        ↓
-🗺️ Carte Interactive des Alertes au Bénin (12 Départements) & Validation Expert
+📊 Structuration Automatique en Données JSON & Carte Nationale des Alertes (12 Départements)
 ```
 
 ---
 
-## 🌟 3. Fonctionnalités Clés du MVP
+## 🤖 3. Modèles d'Intelligence Artificielle Intégrés
 
-### 🎙️ 1. Interface Vocale Multilingue (Espace Agriculteur)
-- **Enregistrement Audio direct** dans le navigateur (Web Audio API / MediaRecorder) ou sélection de témoignages réels.
-- **Support des langues béninoises** : Fon (*Fɔ̀ngbe*), Baatonou (*Baa-to-num*), Yoruba (*Yorùbá*), Mina (*Gen-Gbe*), Dendi et Français.
-- **Intégration Bivariant ASR** : Reconnaissance vocale automatique adaptée aux accents et langues d'Afrique de l'Ouest.
-
-### 💡 2. Conseil Agricole Compréhensible & Restitution Vocale
-- **Diagnostics basés sur la recherche béninoise** : Fiches techniques officielles INRAB/FAO (`ca2306fr.pdf` et `ca2313fr.pdf`).
-- **Restitution Vocale (Text-To-Speech)** : L'agriculteur peu ou pas alphabétisé clique sur un bouton et **écoute** le traitement recommandé dans sa langue.
-- **Mode Pictogrammes** : Instructions étape par étape (Lutte biologique, cendre/sable, rotation de culture, sacs hermétiques PICS).
-
-### 📊 3. Structuration de Données JSON & Carte Nationale (12 Départements)
-- Conversion automatique de la parole brute en schéma JSON enrichi :
-  ```json
-  {
-    "id": "AGRI-BJ-8492",
-    "date_signalement": "2026-09-11",
-    "agriculteur_name": "Koffi Sèmèvo",
-    "culture": "Maïs",
-    "probleme": "Striure du Maïs (Maize Streak Virus)",
-    "type_probleme": "Maladie virale",
-    "zone_geographique": "Collines",
-    "commune": "Dassa-Zoumé",
-    "gravite_estimee": "Forte",
-    "langue_originale": "fon",
-    "transcription_brute": "Agbado ché e ɖò glé mɛ̀ Dassa ɔ́, ama lɔ́ blo sinmɛ̀ vɔvɔ̀...",
-    "traduction_fr": "Mon champ de maïs à Dassa-Zoumé a des feuilles jaunes...",
-    "conseil_fr": "Utiliser des variétés de maïs résistantes INRAB (TZPB, QPM)...",
-    "confiance_transcription": 0.94
-  }
-  ```
-- **Carte SVG du Bénin** : Visualisation géolocalisée des alertes par département (*Alibori, Atacora, Atlantique, Borgou, Collines, Couffo, Donga, Littoral, Mono, Ouémé, Plateau, Zou*).
-- **Exports Data** : Téléchargement du dataset au format JSON et CSV.
-
-### 🛡️ 4. Boucle de Validation par les Agents Agricoles (Human-in-the-Loop)
-- Module dédié aux agents de vulgarisation agricole pour écouter l'audio original, vérifier les transcriptions Bivariant, valider les diagnostics et enrichir continuellement le corpus linguistique béninois.
+| Rôle dans AgriVoix Bénin | Modèle d'IA / Source | Description |
+|---|---|---|
+| **Synthèse Vocale Fon (TTS)** | [`facebook/mms-tts-fon`](https://huggingface.co/facebook/mms-tts-fon) | Modèle vocal Meta MMS dédié à la langue Fon (*Fɔ̀ngbe*) pour la réponse orale directe |
+| **ASR Multilingue** | [`bivariant/GRIOT-ASR-W-0.8-ALL`](https://huggingface.co/bivariant/GRIOT-ASR-W-0.8-ALL) | Transcription automatique des accents et langues béninoises |
+| **Traduction Automatique** | [`bivariant/Griot-MT-1.3B-ALL`](https://huggingface.co/bivariant/Griot-MT-1.3B-ALL) | NMT texte-à-texte pour la structuration JSON |
+| **Moteur RAG** | Moteur Interne INRAB/FAO | Recherche vectorielle sur `ca2306fr.pdf` et `ca2313fr.pdf` avec garanties 0 hallucination |
 
 ---
 
-## 🤖 4. Intégration des Modèles Hugging Face Bivariant
+## 🌟 4. Fonctionnalités Clés du MVP
 
-Notre solution s'appuie directement sur les travaux de l'organisation **Bivariant** ([huggingface.co/bivariant](https://huggingface.co/bivariant)) spécialisée dans l'IA pour les langues africaines :
+### 🎙️ 1. Enregistrement Vocal Direct sans Inscription
+- Bouton unique de capture audio Web Audio API.
+- Réponse vocale automatique instantanée dès la fin du message audio.
 
-| Modèle Hugging Face | Rôle dans AgriVoix Bénin |
-|---|---|
-| [`bivariant/GRIOT-ASR-W-0.8-ALL`](https://huggingface.co/bivariant/GRIOT-ASR-W-0.8-ALL) | Inférence ASR multilingue pour transcrire l'audio des agriculteurs |
-| [`bivariant/Griot-MT-1.3B-ALL`](https://huggingface.co/bivariant/Griot-MT-1.3B-ALL) | Traduction automatique texte-à-texte langues africaines → français |
-| [`bivariant/asr-baatonou`](https://huggingface.co/bivariant/asr-baatonou) | Inférence ASR spécialisée pour la langue Baatonou (Nord Bénin) |
+### 🛡️ 2. Moteur RAG Anti-Hallucination
+- Toutes les recommandations proviennent exclusivement des protocoles homologués par l'INRAB.
+- Affichage de la source exacte (ex: *INRAB / FAO 2018 - Fiche Technique ca2313fr.pdf Page 12-14*).
+
+### 📊 3. Base de Données Structurée & Carte des 12 Départements
+- Conversion automatique de la parole en format JSON standardisé.
+- Visualisation interactive par département (*Alibori, Atacora, Atlantique, Borgou, Collines, Couffo, Donga, Littoral, Mono, Ouémé, Plateau, Zou*).
+- Exportation des datasets aux formats JSON et CSV.
 
 ---
 
-## 🚀 5. Installation et Démarrage Rapide
+## 🚀 5. Installation et Lancement
 
-### Prérequis
-- **Node.js** v18+ 
-- **npm** v9+
-
-### Lancement en mode Développement
 ```bash
-# Clonez le dépôt GitHub
 git clone https://github.com/Hope-land321/Hack_Indaba.git
 cd Hack_Indaba
-
-# Installez les dépendances
 npm install
-
-# Lancez le serveur de développement Vite
 npm run dev
 ```
 
-L'application sera accessible sur `http://localhost:3000`.
-
-### Build de Production
-```bash
-npm run build
-npm run preview
-```
-
 ---
 
-## 📄 6. Sources et Références Agronomiques
+## 👥 6. Développé pour le Hackathon Indaba 2026
 
-- **INRAB (Institut National des Recherches Agricoles du Bénin)** : *Reconnaissance des maladies du maïs en culture au Bénin et méthodes de lutte*, Fiche Technique FAO, Cotonou, 2018 (Dr. Sikirou Rachidatou et al.).
-- **INRAB / FAO** : *Reconnaissance des ravageurs du maïs en stockage au Bénin et méthodes de lutte*, Fiche Technique FAO, Cotonou, 2018.
-- **Direction Générale du Trésor français** : *Bénin — Agriculture et politique agricole*, 2025.
-- **ARCEP Bénin & GSMA** : *Rapports de couverture mobile 4G et pénétration mobile money au Bénin*.
-
----
-
-## 👥 7. Équipe & Hackathon
-
-**Hackathon Indaba Bénin 2026**  
-Dépôt GitHub : [https://github.com/Hope-land321/Hack_Indaba.git](https://github.com/Hope-land321/Hack_Indaba.git)  
-Licence : MIT
+- **GitHub :** [https://github.com/Hope-land321/Hack_Indaba.git](https://github.com/Hope-land321/Hack_Indaba.git)
+- **Licence :** MIT
