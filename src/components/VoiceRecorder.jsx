@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Volume2, Sparkles, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Mic, Square, Volume2, CheckCircle2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { SAMPLE_AUDIO_NOTES } from '../data/inrabDatabase';
 import { processFarmerAudioNote, speakFonTTS } from '../services/bivariantApi';
 
@@ -15,7 +15,7 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
 
-  // Démarrer l'enregistrement vocal
+  // Démarrer l'enregistrement vocal (Style Note Vocale WhatsApp)
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -42,7 +42,7 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (err) {
-      console.warn('Fallback micro simulé:', err);
+      console.warn('Fallback micro:', err);
       setIsRecording(true);
       setRecordingTime(0);
       timerRef.current = setInterval(() => {
@@ -51,7 +51,7 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
     }
   };
 
-  // Arrêter l'enregistrement vocal et déclencher AUTOMATIQUEMENT le RAG + MMS-TTS-FON
+  // Arrêter l'enregistrement et déclencher AUTOMATIQUEMENT la réponse orale Fon + enregistrement DB en arrière-plan
   const stopRecordingAndProcess = async () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
@@ -64,14 +64,30 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
     await handleRunAutomaticPipeline(currentBlob, null);
   };
 
-  // Sélectionner un exemple audio pré-enregistré
+  // Sélection d'échantillons réels
   const handleSelectSample = async (sample) => {
     setActiveSampleId(sample.id);
     setSelectedLang(sample.language);
     await handleRunAutomaticPipeline(null, sample);
   };
 
-  // Traitement automatique
+  // Exemple de problème inconnu / non répertorié
+  const handleSelectUnknownSample = async () => {
+    setActiveSampleId('unknown-sample');
+    const unknownSample = {
+      id: `UNKNOWN-${Date.now()}`,
+      farmerName: 'Codjo Bio',
+      location: 'Banikoara',
+      department: 'Alibori',
+      language: 'fon',
+      transcription_brute: 'Agbado ché e ɖò glé mɛ̀ ɔ́, nǔ ɖévó blo azɔn vɔvɔ̀ bɔ ama lɔ́ gblẽ...',
+      traduction_fr: 'Mon champ de maïs a une maladie étrange avec des taches noires inédites que je n\'ai jamais vues...',
+      confidence: 0.20
+    };
+    await handleRunAutomaticPipeline(null, unknownSample);
+  };
+
+  // Exécution automatique
   const handleRunAutomaticPipeline = async (blob, sample) => {
     setIsProcessing(true);
     try {
@@ -101,44 +117,44 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
 
   return (
     <div className="whatsapp-container" style={{
-      maxWidth: '550px',
+      maxWidth: '540px',
       margin: '0 auto',
       width: '100%',
-      background: 'rgba(18, 38, 28, 0.9)',
+      background: 'rgba(18, 38, 28, 0.92)',
       backdropFilter: 'blur(20px)',
-      borderRadius: '28px',
-      padding: '30px 20px',
+      borderRadius: '24px',
+      padding: '28px 18px',
       border: '1.5px solid rgba(52, 211, 153, 0.3)',
       boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
       textAlign: 'center'
     }}>
-      {/* Indicatif Langue Locale Fon */}
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.18)', padding: '6px 16px', borderRadius: '20px', border: '1px solid #10b981', marginBottom: '20px' }}>
+      {/* Langue Locale Principale Fon */}
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.18)', padding: '6px 14px', borderRadius: '20px', border: '1px solid #10b981', marginBottom: '18px' }}>
         <span style={{ fontSize: '1.1rem' }}>🇧🇯</span>
-        <span style={{ fontWeight: 800, color: '#34d399', fontSize: '0.95rem' }}>Fɔ̀ngbe (Langue Fon)</span>
+        <span style={{ fontWeight: 800, color: '#34d399', fontSize: '0.9rem' }}>Fɔ̀ngbe (Langue Fon)</span>
       </div>
 
-      {/* Pictogramme et Titre */}
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ fontSize: '2.5rem', marginBottom: '4px' }}>🗣️ ➡️ 🌾</div>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ffffff' }}>
+      {/* Titre Ultra-Simple */}
+      <div style={{ marginBottom: '18px' }}>
+        <div style={{ fontSize: '2.4rem', marginBottom: '2px' }}>🗣️ ➡️ 🌾</div>
+        <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff' }}>
           Ɖɔ́ azɔn e ɖò agbado towè wǔ ɔ́
         </h2>
-        <p style={{ fontSize: '0.88rem', color: '#a7f3d0', marginTop: '4px', fontWeight: 500 }}>
-          Appuyez sur le bouton vert micro pour enregistrer votre message vocal
+        <p style={{ fontSize: '0.85rem', color: '#a7f3d0', marginTop: '2px', fontWeight: 500 }}>
+          Appuyez sur le bouton vert micro pour enregistrer
         </p>
       </div>
 
-      {/* BOUTON MICROPHONE STYLE WHATSAPP MOBILE */}
-      <div style={{ margin: '24px 0', position: 'relative' }}>
+      {/* BOUTON MICROPHONE STYLE WHATSAPP */}
+      <div style={{ margin: '20px 0', position: 'relative' }}>
         {isRecording ? (
           <div>
             <button
               onClick={stopRecordingAndProcess}
               className="recording-pulse"
               style={{
-                width: '110px',
-                height: '110px',
+                width: '105px',
+                height: '105px',
                 borderRadius: '50%',
                 border: 'none',
                 background: '#ef4444',
@@ -150,14 +166,11 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
                 boxShadow: '0 0 35px rgba(239, 68, 68, 0.6)'
               }}
             >
-              <Square size={44} color="#ffffff" />
+              <Square size={40} color="#ffffff" />
             </button>
-            <div style={{ marginTop: '14px', color: '#ef4444', fontWeight: 800, fontSize: '1.25rem' }}>
+            <div style={{ marginTop: '12px', color: '#ef4444', fontWeight: 800, fontSize: '1.2rem' }}>
               🔴 {formatTimer(recordingTime)}
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Appuyez pour terminer et écouter la réponse vocale
-            </p>
           </div>
         ) : (
           <div>
@@ -166,39 +179,39 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
               onClick={startRecording}
               className="gradient-btn"
               style={{
-                width: '110px',
-                height: '110px',
+                width: '105px',
+                height: '105px',
                 borderRadius: '50%',
                 border: 'none',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                boxShadow: '0 0 40px rgba(16, 185, 129, 0.5)'
+                boxShadow: '0 0 35px rgba(16, 185, 129, 0.4)'
               }}
             >
-              <Mic size={50} color="#ffffff" />
+              <Mic size={48} color="#ffffff" />
             </button>
-            <div style={{ marginTop: '12px', fontSize: '0.85rem', color: '#9ca3af' }}>
+            <div style={{ marginTop: '10px', fontSize: '0.8rem', color: '#9ca3af' }}>
               (Note Vocale WhatsApp)
             </div>
           </div>
         )}
 
         {isProcessing && (
-          <div style={{ marginTop: '20px', padding: '14px', background: 'rgba(16, 185, 129, 0.2)', borderRadius: '14px', border: '1px solid #10b981' }}>
-            <span className="wave-bar" style={{ height: '18px' }}></span>
-            <span style={{ fontWeight: 700, color: '#34d399', marginLeft: '10px', fontSize: '0.9rem' }}>
-              Recherche RAG & Voix Fon (mms-tts-fon)...
+          <div style={{ marginTop: '18px', padding: '12px', background: 'rgba(16, 185, 129, 0.2)', borderRadius: '12px', border: '1px solid #10b981' }}>
+            <span className="wave-bar" style={{ height: '16px' }}></span>
+            <span style={{ fontWeight: 700, color: '#34d399', marginLeft: '8px', fontSize: '0.88rem' }}>
+              Recherche RAG & Voix Fon en cours...
             </span>
           </div>
         )}
       </div>
 
-      {/* Échantillons Vocaux Fon */}
-      <div style={{ marginTop: '28px', paddingTop: '18px', borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
-        <p style={{ fontSize: '0.82rem', color: '#fcd34d', fontWeight: 700, marginBottom: '10px' }}>
-          🔊 Tester un message vocal pré-enregistré :
+      {/* Échantillons Vocaux Réels du Bénin */}
+      <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
+        <p style={{ fontSize: '0.8rem', color: '#fcd34d', fontWeight: 700, marginBottom: '8px' }}>
+          🔊 Tester des cas réels du Bénin :
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {SAMPLE_AUDIO_NOTES.slice(0, 3).map((sample) => (
@@ -209,8 +222,8 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '10px 14px',
-                borderRadius: '14px',
+                padding: '10px 12px',
+                borderRadius: '12px',
                 background: activeSampleId === sample.id ? 'rgba(245, 158, 11, 0.25)' : 'rgba(0,0,0,0.3)',
                 border: activeSampleId === sample.id ? '1.5px solid #f59e0b' : '1px solid rgba(255,255,255,0.08)',
                 color: '#ffffff',
@@ -219,12 +232,35 @@ export default function VoiceRecorder({ onDiagnosticGenerated }) {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.88rem' }}>🗣️ {sample.farmerName}</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>📍 {sample.location}</div>
+                <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.85rem' }}>🗣️ {sample.farmerName} ({sample.location})</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{sample.traduction_fr.slice(0, 42)}...</div>
               </div>
-              <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>Écouter Réponse</span>
+              <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>Réponse Fon</span>
             </button>
           ))}
+
+          {/* Test Cas Problème Inconnu */}
+          <button
+            onClick={handleSelectUnknownSample}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 12px',
+              borderRadius: '12px',
+              background: activeSampleId === 'unknown-sample' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid #ef4444',
+              color: '#ffffff',
+              cursor: 'pointer',
+              textAlign: 'left'
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 700, color: '#f87171', fontSize: '0.85rem' }}>⚠️ Test Cas Problème Inconnu</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Maladie non répertoriée ➔ Alerte Admin en Fon</div>
+            </div>
+            <span className="badge badge-danger" style={{ fontSize: '0.68rem' }}>Alerte Admin</span>
+          </button>
         </div>
       </div>
     </div>
